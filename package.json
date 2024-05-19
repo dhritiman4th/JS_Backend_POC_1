@@ -1,0 +1,16 @@
+{
+  "name": "backend_poc_1",
+  "version": "1.0.0",
+  "description": "A backend from Chai aur code channel",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "javaScript",
+    "backend",
+    "chai"
+  ],
+  "author": "Dhritiman Saha",
+  "license": "ISC"
+}
