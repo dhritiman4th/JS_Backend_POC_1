@@ -20,3 +20,8 @@ class ApiError extends Error {
 }
 
 export {ApiError}
+
+/* 
+NOTE: - Error.captureStackTrace(this, this.constructor) is used to attach a stack trace to the current 
+instance (this) of the error object, excluding the error constructor function itself from the stack trace.
+*/
