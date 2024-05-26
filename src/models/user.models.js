@@ -49,7 +49,7 @@ const userSchema = new mongoose.Schema({
 
 userSchema.pre("save", async function(next) {
     if (!this.isModified("password")) {
-        next();
+        return  next();
     }
     this.password = bcrypt.hash(this.password, 10); // 2nd option is salt / round
     next();
