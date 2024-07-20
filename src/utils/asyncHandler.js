@@ -1,6 +1,6 @@
 // *********** For Promises
 const asyncHandler = (requestHandler) => {
-    (req, res, next) => {
+    return (req, res, next) => {
         Promise.resolve(requestHandler(req, res, next))
         .catch((error) => {
             next(error);
@@ -9,6 +9,12 @@ const asyncHandler = (requestHandler) => {
 };
 
 export {asyncHandler};
+
+// NOTES:- Four thing express middleware accepts,
+// - err
+// - req
+// - res
+// - next
 
 // STEP BY STEP BREAKDOWN
 // const asyncHandler = () => {}

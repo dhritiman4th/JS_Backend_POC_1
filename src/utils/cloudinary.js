@@ -1,4 +1,5 @@
 import {v2 as cloudinary} from 'cloudinary';
+// NOTE:- In the above line v2 indicates the version of the Cloudinary API that we are using.
 import fs from "fs";
           
 cloudinary.config({ 
@@ -8,7 +9,7 @@ cloudinary.config({
 });
 
 
-const uploadCloudinary = async (localFilePath) => {
+const uploadOnCloudinary = async (localFilePath) => {
     try {
         if (!localFilePath) {
             return null;
