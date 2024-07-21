@@ -55,7 +55,7 @@ userSchema.pre("save", async function(next) {
     if (!this.isModified("password")) {
         return  next();
     }
-    this.password = bcrypt.hash(this.password, 10); // 2nd option is salt / round
+    this.password = await bcrypt.hash(this.password, 10); // 2nd option is salt / round
     next();
 }); 
 // NOTE: - Above we should not user arrow function becase as we know, arrow function doesn't hold 'this'.
