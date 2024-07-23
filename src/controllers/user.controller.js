@@ -15,9 +15,8 @@ const registerUser = asyncHandler(async (req, res) => {
     // - Remove password and refresh token field from response
     // - Check for user creation
     // - Return response
-
+    console.log("body : ", req.body);
     const {username, fullName, email, password} = req.body;
-    console.log("email : ", email);
 
     // if (fullName === "") {
     //     throw new ApiError(400, "Fullname is required");
@@ -37,17 +36,24 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     const avatarLocalPath = req.files?.avatar[0]?.path;// ASSIGNMENT: Console log req.files
-    console.log("req.files : ",req.files);
-    const coverImagePath = req.files?.coverImage[0]?.path;
+    // console.log("req.files : ",req.files);
     if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar is required");
     }
 
+    let coverImagePath;
+    if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+        coverImagePath = req.files.coverImage[0].path;
+    }
+
     const avatar = await uploadOnCloudinary(avatarLocalPath);
-    const coverImage = await uploadOnCloudinary(coverImagePath);
-    if (avatar) {
+    if (!avatar) {
         throw new ApiError(400, "Avatar file is required");
     }
+    // console.log("avatar : ",avatar);
+    // console.log("avatar : ",avatar.url);
+
+    let coverImage = await uploadOnCloudinary(coverImagePath);
 
     const user = await User.create({
         fullName,
