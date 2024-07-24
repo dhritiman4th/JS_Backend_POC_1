@@ -4,6 +4,20 @@ import {User} from "../models/user.models.js";
 import {uploadOnCloudinary} from "../utils/cloudinary.js";
 import {ApiResponse} from "../utils/ApiResponse.js";
 
+const generateAccessAndRefreshToken = async (userId) => {
+    try {
+        const user = await User.findById(userId);
+        const refreshToken = user.generateRefreshToken();
+        const accessToken = user.generateAccessToken();
+        user.refreshToken = refreshToken;
+        await user.save({validateBeforeSave: false}); // Not validating other fields
+
+        return {accessToken, refreshToken};
+    } catch (error) {
+        throw ApiError(500, "Something went wrong while generating refresh and access tokens");
+    }
+}
+
 const registerUser = asyncHandler(async (req, res) => {
     // - Get user details from front end
     // - Validate user details
@@ -78,4 +92,60 @@ const registerUser = asyncHandler(async (req, res) => {
     ));
 });
 
-export {registerUser};
+const loginUser = asyncHandler(async (req, res) => {
+    // - Get user details from front end
+    // - check wheather user exists or not
+    // - validate the password
+    // - Generate a acces and refresh token
+    // - send cookie
+
+    const {email, username, password} = req.body;
+
+    if (!username || !email) {
+        throw new ApiError(400, "username or email is required.");
+    }
+
+    const user = await User.findOne({ // NOTE:- '$or', '$nor' etc these are mongodb operators.
+        $or: [{username}, {email}]
+    })
+
+    if (!user) {
+        throw new ApiError(404, "User doesn't exists");
+    }
+
+    const isPasswordValid = await user.isPasswordCorrect(password);
+
+    if (!isPasswordValid) {
+        throw new ApiError(401, "Invalid user credentials");
+    }
+
+    const {accessToken,refreshToken} = await generateAccessAndRefreshToken(user._id);
+
+    // If db service is not expensive then
+    const loggedInUser = await User.findById(user._id).select(
+        "-password -refreshToken"
+    );
+    // If db service is expensive then do below line
+    // user.refreshToken = refreshToken;
+
+    // Cookie creation
+    const option = {
+        httpOnly: true,
+        secure: true
+    }; 
+    /* NOTE:- By doing this we are making cookie inaccessible from front end. 
+    Only at server end it can be modified. Front end only can see. */
+    return res
+    .status(200)
+    .cookie("accessToken" , accessToken, option)
+    .cookie("refreshToken", refreshToken, option)
+    .json(new ApiResponse(200, {
+        user: loggedInUser, accessToken, refreshToken,
+        message: "User loggedin successfully"
+    }))
+});
+
+export {
+    registerUser,
+    loginUser
+};
