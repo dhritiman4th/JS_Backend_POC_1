@@ -1,7 +1,7 @@
 import {asyncHandler} from "../utils/asyncHandler.js";
 import {ApiError} from "../utils/ApiError.js";
 import {User} from "../models/user.models.js";
-import {uploadOnCloudinary} from "../utils/cloudinary.js";
+import {uploadOnCloudinary, deleteFromCloudinary} from "../utils/cloudinary.js";
 import {ApiResponse} from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 
@@ -50,9 +50,9 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(409, "User with email or username already exists")
     }
 
-    const avatarLocalPath = req.files?.avatar[0]?.path;// ASSIGNMENT: Console log req.files
     console.log("req.files : ",req.files);
     console.log("req.files : ",req.files?.avatar);
+    const avatarLocalPath = req.files?.avatar[0]?.path;// ASSIGNMENT: Console log req.files
     if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar is required");
     }
@@ -273,9 +273,10 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
-    const user = User.findById(req.user._id);
+    const user = await User.findById(req.user._id);
+    const oldAvatarImage = user.avatar;
 
-    const avatarLocalPath = req.files?.avatar[0].path;
+    const avatarLocalPath = req.file?.path;
 
     if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar is missing");
@@ -298,12 +299,14 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
         }
     ).select("-password");
 
+    await deleteFromCloudinary(oldAvatarImage);
+
     return res
     .status(200)
     .json(new ApiResponse(200, updatedUserDetails, "Avatar is updated successfully"));
 });
 
-const updateUSerCoverImage = asyncHandler( async (req, res) => {
+const updateUserCoverImage = asyncHandler( async (req, res) => {
     const coverImagePath = req.file?.path;
 
     if(!coverImagePath) {
@@ -332,6 +335,79 @@ const updateUSerCoverImage = asyncHandler( async (req, res) => {
     .json(new ApiResponse(200, updatedUserDetails, "Cover image is updated successfully"));
 });
 
+const getUserChannelProfile = asyncHandler( async(req, res) => {
+    const {username} = req.params;
+
+    if (!username?.trim()) {
+        throw new ApiError(400, "username is missing");
+    }
+
+    const channel = User.aggregate(
+        [
+            {
+                $match: {
+                    username: username?.toLowerCase()
+                }
+            },
+            {
+                $lookup: {
+                    from: "subscriptions",
+                    localField: "_id",
+                    foreignField: "subscriber",
+                    as: "subscribers"
+                }
+            },
+            {
+                $lookup: {
+                    from: "subscriptions",
+                    localField: "_id",
+                    foreignField: "channel",
+                    as: "subscribedTo"
+                }
+            },
+            {
+                $addFields: {
+                    subscribersCount: {
+                        $size: "$subscribers"
+                    },
+                    channelSubscribedToCount: {
+                        $size: "$subscribedTo"
+                    },
+                    isSubscribed: {
+                        $cond: {
+                            if: {
+                                $in: [req.user?._id, "$subscribers.subscriber"]
+                            },
+                            then: true,
+                            else: false
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    username: 1,
+                    fullName: 1,
+                    email: 1,
+                    avatar: 1,
+                    coverImage: 1,
+                    subscribersCount: 1,
+                    channelSubscribedToCount: 1, 
+                    isSubscribed: 1
+                }
+            }
+        ]
+    );
+
+    if (!channel?.length) {
+        throw new ApiError(400, "Channel doesn't exist");
+    }
+
+    return res
+    .status(200)
+    .json( new ApiResponse(200, channel[0], "User channel fetched successfully"));
+});
+
 export {
     registerUser,
     loginUser,
@@ -341,5 +417,6 @@ export {
     getCurrentUser,
     updateAccountDetails,
     updateUserAvatar,
-    updateUSerCoverImage
+    updateUserCoverImage,
+    getUserChannelProfile
 };
