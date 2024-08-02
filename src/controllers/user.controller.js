@@ -4,6 +4,7 @@ import {User} from "../models/user.models.js";
 import {uploadOnCloudinary, deleteFromCloudinary} from "../utils/cloudinary.js";
 import {ApiResponse} from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const generateAccessAndRefreshToken = async (userId) => {
     try {
@@ -408,6 +409,68 @@ const getUserChannelProfile = asyncHandler( async(req, res) => {
     .json( new ApiResponse(200, channel[0], "User channel fetched successfully"));
 });
 
+const getWatchHistory = asyncHandler(async (req, res) => {
+    const user = await User.aggregate(
+        [
+            {
+                $match: {
+                    _id: new mongoose.Types.ObjectId(String(req.user._id))
+                }
+            },
+            {
+                $lookup: {
+                    from: "videos",
+                    localField: "watchHistory",
+                    foreignField: "owner",
+                    as: "watchHistory",
+                    pipeline: [
+                        {
+                            $lookup: {
+                                from: "users",
+                                localField: "owner",
+                                foreignField: "_id",
+                                as: "owner", 
+                                pipeline: [
+                                    {
+                                        $project: {
+                                            avatar: 1,
+                                            fullName: 1,
+                                            username: 1
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            $addFields: {
+                                owner: {
+                                    $first: "$owner"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    );
+
+    if (!user?.length) {
+        throw new ApiError(400, "user doesn't exist");
+    }
+
+    if (!user[0].watchHistory.length) {
+        throw new ApiError(400, "user doesn't have any watch history");
+    }
+
+    return res
+    .status(200)
+    .json(new ApiResponse(
+        200,
+        user[0].watchHistory,
+        "Watch history fetched successfully"
+    ));
+});
+
 export {
     registerUser,
     loginUser,
@@ -418,5 +481,6 @@ export {
     updateAccountDetails,
     updateUserAvatar,
     updateUserCoverImage,
-    getUserChannelProfile
+    getUserChannelProfile,
+    getWatchHistory
 };
