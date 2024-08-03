@@ -5,9 +5,12 @@ import {
     registerUser, 
     refreshAccessToken, 
     updateUserAvatar, 
+    updateUserCoverImage,
     changeCurrentPassword, 
     getCurrentUser, 
-    updateAccountDetails
+    updateAccountDetails,
+    getUserChannelProfile,
+    getWatchHistory
 } from "../controllers/user.controller.js";
 import {upload} from "../middlewares/multer.middleware.js";
 import {verifyJWT} from "../middlewares/auth.middleware.js"
@@ -65,7 +68,7 @@ router.route("/update-avatar").patch(
 router.route("/update-cover").patch(
     verifyJWT,
     upload.single("coverImage"),
-    updatedCoverImage
+    updateUserCoverImage
 );
 
 router.route("/channel-profile/:username").get(
@@ -73,7 +76,7 @@ router.route("/channel-profile/:username").get(
     getUserChannelProfile
 );
 
-route.route("/watch-history").get(
+router.route("/watch-history").get(
     verifyJWT, 
     getWatchHistory
 );

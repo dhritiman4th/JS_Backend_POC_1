@@ -12,8 +12,7 @@ const generateAccessAndRefreshToken = async (userId) => {
         const refreshToken = user.generateRefreshToken();
         const accessToken = user.generateAccessToken();
         user.refreshToken = refreshToken;
-        await user.save({validateBeforeSave: false}); // Not validating other fields
-
+        const response = await user.save({validateBeforeSave: false}); // Not validating other fields
         return {accessToken, refreshToken};
     } catch (error) {
         throw ApiError(500, "Something went wrong while generating refresh and access tokens");
@@ -149,8 +148,12 @@ const logoutUser = asyncHandler(async (req, res) => {
     await User.findByIdAndUpdate(
         req.user._id,
         {
-            $set: {
-                refreshToken: undefined
+            /*
+            NOTE:- If we set null then the value of refreshToken will be null, but if we use $unset 
+            and set the value 1 or "", the field will be removed from mongodb
+            */
+            $unset: {
+                refreshToken: 1
             }
         },
         {
@@ -203,18 +206,21 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
             httpOnly: true,
             secure: true
         }
-    
-        const {newAccessToken, newRefreshToken} = await generateAccessAndRefreshToken(user._id);
-    
+        
+        // console.log("user = ",user);
+        const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user._id);
+        // console.log(`new access token = ${accessToken}`);
+        // console.log(`new refresh token = ${refreshToken}`);
+
         return res
         .status(200)
-        .cookie("accessToken", newAccessToken, options)
-        .cookie("refreshToken", newRefreshToken, options)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options)
         .json(new ApiResponse(
             200,
             {
-                newAccessToken, 
-                newRefreshToken
+                accessToken, 
+                refreshToken
             }, 
             "Access token refreshed")
         )
@@ -275,15 +281,18 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id);
+    // console.log("user : ",user);
     const oldAvatarImage = user.avatar;
-
+    // console.log("oldAvatarImage : ",oldAvatarImage);
     const avatarLocalPath = req.file?.path;
+    // console.log("avatarLocalPath : ",avatarLocalPath);
 
     if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar is missing");
     }
 
     const updatedAvatar = await uploadOnCloudinary(avatarLocalPath);
+    // console.log("updatedAvatar : ",updatedAvatar);
     if (!updatedAvatar.url) {
         throw new ApiError(400, "Error while uploading avatar to cloud");
     }
@@ -299,7 +308,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
         new: true
         }
     ).select("-password");
-
+    // console.log("Updated user details : ",updatedUserDetails);
     await deleteFromCloudinary(oldAvatarImage);
 
     return res
@@ -308,6 +317,9 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 });
 
 const updateUserCoverImage = asyncHandler( async (req, res) => {
+    const user = req.user;
+    const oldCoverImage = user.coverImage;
+
     const coverImagePath = req.file?.path;
 
     if(!coverImagePath) {
@@ -330,6 +342,7 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
             new: true
         }
     );
+    await deleteFromCloudinary(oldCoverImage);
 
     return res
     .status(200)
@@ -338,7 +351,7 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
 
 const getUserChannelProfile = asyncHandler( async(req, res) => {
     const {username} = req.params;
-
+    console.log("username = ",username);
     if (!username?.trim()) {
         throw new ApiError(400, "username is missing");
     }
@@ -456,10 +469,6 @@ const getWatchHistory = asyncHandler(async (req, res) => {
 
     if (!user?.length) {
         throw new ApiError(400, "user doesn't exist");
-    }
-
-    if (!user[0].watchHistory.length) {
-        throw new ApiError(400, "user doesn't have any watch history");
     }
 
     return res
