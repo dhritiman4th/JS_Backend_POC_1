@@ -20,6 +20,9 @@ app.use(cookieParser()); //NOTE:- USing this we can set or update the secured co
 import userRouter from "./routes/user.routes.js";
 app.use("/api/v1/users", userRouter);
 
+import subscriptionRouter from "./routes/subscription.routes.js";
+app.use("/api/v1/subscription", subscriptionRouter);
+
 //routes declaration
 
 export default app;
