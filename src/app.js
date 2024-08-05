@@ -23,6 +23,8 @@ app.use("/api/v1/users", userRouter);
 import subscriptionRouter from "./routes/subscription.routes.js";
 app.use("/api/v1/subscription", subscriptionRouter);
 
+import videoRouter from "./routes/video.routes.js";
+app.use("/api/v1/video", videoRouter);
 //routes declaration
 
 export default app;
