@@ -1,7 +1,7 @@
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 import { Video } from "../models/video.models.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
@@ -98,19 +98,100 @@ const getVideoById = asyncHandler(async (req, res) => {
 })
 
 const updateVideo = asyncHandler(async (req, res) => {
-    const { videoId } = req.params
+    const { videoId } = req.params;
+    if (!videoId) {
+        throw new ApiError(400, "video id is required");
+    }
     //TODO: update video details like title, description, thumbnail
 
+    const video = await Video.findById(videoId);
+    if (!video) {
+        throw new ApiError(400, "No sunch video is available")
+    }
+
+    if (!requestedVideo.owner.equals(req.user._id)) {
+        throw new ApiError(400, "You are not authorized to update details of this video");
+    }
+
+    const {title, description} = req.body;
+    if (!title || !description) {
+        throw new ApiError(400, "title and description are mandatory");
+    }
+    video.title = title;
+    video.description = description;
+    
+    let localThumbnailPath;
+    if (Array.isArray(req.files?.thumbnail)) {
+        localThumbnailPath = req.files?.thumbnail[0].path;
+    } else {
+        localThumbnailPath = req.file?.path;
+    }
+
+    if (localThumbnailPath) {
+        const uploadedThumbnail = await uploadOnCloudinary(localThumbnailPath);
+        if (!uploadedThumbnail) {
+            throw new ApiError(500, "Something went wrong while uploading thumbnail to cloud");
+        }
+        const oldThumbnailUrl = video.thumbnail;
+        await deleteFromCloudinary(oldThumbnailUrl);
+        video.thumbnail = uploadedThumbnail.url;
+    }
+
+    const response = await video.save({validateBeforeSave: false});
+    
+    if (!response) {
+        throw new ApiError(500, "Something went wrong while updating vuideo details");
+    }
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Video details have been updated"));
 })
 
 const deleteVideo = asyncHandler(async (req, res) => {
-    const { videoId } = req.params
     //TODO: delete video
+    const { videoId } = req.params
+    const requestedVideo = await Video.findById(videoId);
+    if (!requestedVideo) {
+        throw new ApiError(400, "No sunch video is available")
+    }
+
+    if (!requestedVideo.owner.equals(req.user._id)) {
+        throw new ApiError(400, "You are not authorized to delete this video");
+    }
+    
+    if (!videoId) {
+        throw new ApiError(400, "video id is required");
+    }
+    await requestedVideo.deleteOne()
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Video has been deleted successfully"));
 })
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-})
+    
+    const requestedVideo = await Video.findById(videoId);
+    if (!requestedVideo) {
+        throw new ApiError(400, "No sunch video is available")
+    }
+
+    console.log(requestedVideo.owner);
+    console.log(req.user._id);
+    if (!requestedVideo.owner.equals(req.user._id)) {
+        throw new ApiError(400, "You are not authorized to publish this video");
+    }
+
+    requestedVideo.isPublished = !requestedVideo.isPublished;
+
+    await requestedVideo.save({validateBeforeSave: false});
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, {}, requestedVideo.isPublished ? "Video has been published successfully" : "Video has been unpublished successfully"));
+});
 
 export {
     getAllVideos,
